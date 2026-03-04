@@ -1,0 +1,115 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["queryCompiler"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Enums ────────────────────────────────────────────────────────────────────
+
+enum VenueType {
+  RESTAURANT
+  EVENT
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  SEATED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum UserRole {
+  STAFF
+  OWNER
+}
+
+// ── Models ───────────────────────────────────────────────────────────────────
+
+model Customer {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  phone        String?
+  createdAt    DateTime      @default(now())
+  reservations Reservation[]
+
+  @@map("customers")
+}
+
+model Venue {
+  id           String        @id @default(cuid())
+  name         String
+  type         VenueType
+  capacity     Int
+  address      String
+  createdAt    DateTime      @default(now())
+  tables       Table[]
+  timeSlots    TimeSlot[]
+  reservations Reservation[]
+
+  @@map("venues")
+}
+
+model Table {
+  id           String        @id @default(cuid())
+  venueId      String
+  label        String
+  capacity     Int
+  isActive     Boolean       @default(true)
+  venue        Venue         @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
+
+  @@map("tables")
+}
+
+model TimeSlot {
+  id                String   @id @default(cuid())
+  venueId           String
+  date              DateTime @db.Date
+  startTime         String
+  endTime           String
+  availableCapacity Int
+  venue             Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, date, startTime])
+  @@map("time_slots")
+}
+
+model Reservation {
+  id              String            @id @default(cuid())
+  venueId         String
+  customerId      String
+  tableId         String?
+  date            DateTime          @db.Date
+  timeSlot        String
+  partySize       Int
+  status          ReservationStatus @default(PENDING)
+  specialRequests String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  venue           Venue             @relation(fields: [venueId], references: [id])
+  customer        Customer          @relation(fields: [customerId], references: [id])
+  table           Table?            @relation(fields: [tableId], references: [id])
+
+  @@index([venueId, date])
+  @@index([customerId])
+  @@index([status])
+  @@map("reservations")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole @default(STAFF)
+  createdAt    DateTime @default(now())
+
+  @@map("users")
+}
